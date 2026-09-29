@@ -34,6 +34,50 @@ READY_PATH = os.path.join(LOG_DIR, "ui_ready.txt")
 # 旧版本把成品放在 output/，启动时自动搬到 gallery/，避免用户已保存的图「消失」
 _LEGACY_GALLERY_DIR = os.path.join(BASE_DIR, "output")
 
+# 程序图标：默认就是程序目录下的 logo.png（换成 logo.ico 小尺寸会更清楚）
+DEFAULT_ICON_PATH = os.path.join(BASE_DIR, "logo.png")
+# 找图标的顺序：优先 .ico（Windows 标题栏 / 任务栏的小尺寸更清楚），
+# 程序目录和 app/resources 两处都找，方便打包 exe 时把图标单独放在资源目录。
+ICON_CANDIDATES = (
+    os.path.join(BASE_DIR, "logo.ico"),
+    DEFAULT_ICON_PATH,
+    os.path.join(RESOURCES_DIR, "logo.ico"),
+    os.path.join(RESOURCES_DIR, "logo.png"),
+)
+
+# Windows 任务栏靠它给程序分组：不设的话，用 pythonw 起的程序会被归到「Python」
+# 那一组，任务栏图标显示的是 Python 的图标，而不是我们自己的。
+WINDOWS_APP_ID = "removebg.material.library.1"
+
+
+def icon_path() -> str:
+    """返回实际存在的图标文件；一个都没找到就返回默认位置（便于提示用户放哪儿）。"""
+    for path in ICON_CANDIDATES:
+        if os.path.isfile(path):
+            return path
+    return DEFAULT_ICON_PATH
+
+
+_app_id_set = False
+
+
+def set_windows_app_id() -> None:
+    """把本进程标记成一个独立应用，让 Windows 任务栏用自己的图标。
+
+    必须在创建窗口之前调用；非 Windows 平台直接跳过。
+    """
+    global _app_id_set
+    if _app_id_set or not sys.platform.startswith("win"):
+        return
+    _app_id_set = True
+    try:
+        import ctypes
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(WINDOWS_APP_ID)
+        log(f"Windows AppUserModelID 已设置：{WINDOWS_APP_ID}")
+    except Exception as exc:  # noqa: BLE001 - 设不上只是图标不好看，不影响运行
+        log(f"设置 Windows AppUserModelID 失败（不影响使用）：{exc}")
+
 
 def log(message: str) -> None:
     """把启动过程写进 logs/startup.log，方便排查「双击没反应 / 启动崩溃」。"""
@@ -160,6 +204,9 @@ def setup_environment() -> None:
     # rembg 默认把模型下载到 用户目录/.u2net，这里强制指向项目内的 models 目录，
     # 保证模型随项目走、换电脑零差异、且不会偷偷联网下载。
     os.environ["U2NET_HOME"] = MODELS_DIR
+
+    # 让 Windows 任务栏把本程序当独立应用，用自己的图标（要在建窗口之前设）
+    set_windows_app_id()
 
     # CPU 推理线程数：默认用一半逻辑核心，避免笔记本满载降频、风扇狂转
     if "OMP_NUM_THREADS" not in os.environ:
