@@ -1,0 +1,8 @@
+# 运行时依赖（Python 3.11，全部为 CPU 版本，无需显卡）
+PyQt5==5.15.11
+Pillow==12.3.0
+pillow-heif==1.7.0
+numpy==2.4.6
+onnxruntime==1.30.0
+scipy==1.17.1
+rembg==2.0.85
